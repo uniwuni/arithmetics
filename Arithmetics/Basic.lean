@@ -81,10 +81,16 @@ def succ {α : Type*} (t : Language.arith.Term α) := t + 1
 theorem succ_def (α : Type*) (t : Language.arith.Term α) :
     Arith.succ t = t + 1 := rfl
 
+infix:55 " ≤'' " => leRel.boundedFormula₂
+
 infix:55 " ≤' " => leRel.formula₂
 
 theorem le_def (α : Type*) (t₁ t₂ : Language.arith.Term α) :
   t₁ ≤' t₂ = leRel.formula₂ t₁ t₂ := rfl
+
+def ofNat' : ℕ → Language.arith.Term α
+  | 0 => 0
+  | (n + 1) => succ (ofNat' n)
 
 instance : Fintype Language.arith.Symbols :=
   ⟨⟨Multiset.ofList
