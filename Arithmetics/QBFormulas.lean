@@ -7,7 +7,9 @@ variable {L} [IsOrdered L] {n : ℕ}
 
 variable {v : α → M} {xs : Fin l → M}
 namespace BoundedFormula
-
+/-- Formulas where all quantifiers are bounded. These are not all such formulas,
+    but all equivalence classes are hit.
+-/
 inductive IsQB : {n : ℕ} → L.BoundedFormula α n → Prop
   | of_isQF {φ} (h₁ : φ.IsQF) : IsQB φ
   | imp {n} {φ₁ φ₂} (h₁ : IsQB (n := n) φ₁) (h₂ : IsQB φ₂) : IsQB (φ₁.imp φ₂)

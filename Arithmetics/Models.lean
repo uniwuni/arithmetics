@@ -7,6 +7,8 @@ namespace Arith.Robinson
 open Language.Theory
 open Language arith Structure 
 
+/-- The natural numbers are a model of Robinson arithmetic.
+-/
 theorem nat_models_robinson :
   ℕ ⊨ Q := by
   simp only [Q, Set.mem_insert_iff, Set.mem_singleton_iff, model_iff, forall_eq_or_imp, forall_eq]
@@ -57,7 +59,8 @@ variable {R : Type*} [Add R] [Mul R] [LE R] [One R] [Zero R] [CompatibleOrderedS
 variable [RobinsonStructure R]
 open RobinsonStructure
 open CompatibleOrderedSemiring
-
+/-- Terms are preserved by the embedding from the "initial model".
+-/
 lemma reduce_term (t : arith.Term α) (k : α → ℕ) :
   Term.realize (M := R) (λ x ↦ OfNat.ofNat (k x)) t = OfNat.ofNat (Term.realize (M := ℕ) k t) := 
   match t with
@@ -82,7 +85,8 @@ lemma reduce_term (t : arith.Term α) (k : α → ℕ) :
     simp only [Term.realize_func, funMap_one]
     rw[funMap_one, ←succ_zero_eq_one]
     rfl
-
+/-- Quantifier-free formulas are preserved by the embedding from the "initial model".
+-/
 lemma qf_complete {n} {Φ : arith.BoundedFormula α n} (h : FirstOrder.Language.BoundedFormula.IsQF Φ) (f : _) (k : _):
   BoundedFormula.Realize (M := ℕ) Φ f k ↔ BoundedFormula.Realize (M := R) Φ (λ x ↦ OfNat.ofNat (f x)) (λ x ↦ OfNat.ofNat (k x)) := by
   induction h with
@@ -166,7 +170,8 @@ lemma Fin.comp_snoc_dep {n} {α β : Fin (n + 1) → Type*}
     · simp [h, Fin.snoc, Fin.castSucc_castLT]
     · rw [Fin.eq_last_of_not_lt h]
       simp
-
+/-- Bounded formulas are preserved by the embedding from the "initial model".
+-/
 lemma qb_complete {n} {Φ : arith.BoundedFormula α n} (h : FirstOrder.Language.BoundedFormula.IsQB Φ) (f : _) (k : _):
   BoundedFormula.Realize (M := ℕ) Φ f k ↔ BoundedFormula.Realize (M := R) Φ (λ x ↦ OfNat.ofNat (f x)) (λ x ↦ OfNat.ofNat (k x)) :=
   match h with
@@ -258,6 +263,8 @@ lemma qb_complete {n} {Φ : arith.BoundedFormula α n} (h : FirstOrder.Language.
       have h6 := (qb_complete h₁ (fun x => f x) (Fin.snoc (fun x => k x) a)).mpr h5
       exact h6
 
+/-- Robinson arithmetic is $\Sigma_1$-complete.
+-/
 lemma exists_complete {Φ : arith.BoundedFormula Empty 1} (h : FirstOrder.Language.BoundedFormula.IsQB Φ) :
   BoundedFormula.Realize (M := ℕ) Φ.ex default default → BoundedFormula.Realize (M := R) Φ.ex default default := by
   rw[BoundedFormula.realize_ex, BoundedFormula.realize_ex]  
