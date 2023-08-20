@@ -51,7 +51,7 @@ abbrev zeroFunc : Language.arith.Functions 0 := zero
 /-- `RingFunc.zero`, but with the defeq type `Language.ring.Functions 0` instead
 of `RingFunc 0` -/
 abbrev oneFunc : Language.arith.Functions 0 := one
-
+@[simp]
 abbrev leRel : Language.arith.Relations 2 := le
 
 instance (α : Type*) : Zero (Language.arith.Term α) :=
