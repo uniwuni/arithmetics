@@ -113,6 +113,7 @@ theorem card_arith : card Language.arith = 5 := by
 
 open Language arith Structure   
 
+
 /-- A Type `R` is a `CompatibleRing` if it is structure for the language of rings and this structure
 is the same as the structure already given on `R` by the classes `Add`, `Mul` etc.
 
@@ -122,22 +123,23 @@ requires a type to have be both a `Ring` (or `Field` etc.) and a
 /- This class does not extend `Add` etc, because this way it can be used in
 combination with a `Ring`, or `Field` instance without having multiple different
 `Add` structures on the Type. -/
-class CompatibleOrderedSemiring (R : Type*) [Add R] [Mul R] [One R] [Zero R] [LE R]
-    extends Language.arith.Structure R where
+class CompatibleOrderedSemiring (R : Type*) [Add R] [Mul R] [One R] [Zero R] [LE R] [Language.arith.Structure R]
+    : Prop where
   /-- Addition in the `Language.ring.Structure` is the same as the addition given by the
     `Add` instance -/
-  ( funMap_add : ∀ x, funMap addFunc x = x 0 + x 1 )
+  
+  ( funMap_add : ∀ x, (funMap addFunc x : R) = x 0 + x 1 )
   /-- Multiplication in the `Language.ring.Structure` is the same as the multiplication given by the
     `Mul` instance -/
-  ( funMap_mul : ∀ x, funMap mulFunc x = x 0 * x 1 )
+  ( funMap_mul : ∀ x, (funMap mulFunc x : R) = x 0 * x 1 )
   /-- The constant `0` in the `Language.ring.Structure` is the same as the constant given by the
     `Zero` instance -/
-  ( funMap_zero : ∀ x, funMap (zeroFunc : Language.arith.Constants) x = 0 )
+  ( funMap_zero : ∀ x, funMap (zeroFunc : Language.arith.Constants) x = (0 : R) )
   /-- The constant `1` in the `Language.ring.Structure` is the same as the constant given by the
     `One` instance -/
-  ( funMap_one : ∀ x, funMap (oneFunc : Language.arith.Constants) x = 1 )
+  ( funMap_one : ∀ x, funMap (oneFunc : Language.arith.Constants) x = (1 : R) )
 
-  ( relMap_le : ∀ x, RelMap leRel x = (x 0 ≤ x 1) )
+  ( relMap_le : ∀ x, RelMap leRel x = ((x 0 : R) ≤ x 1) )
 
 open CompatibleOrderedSemiring
 
@@ -145,7 +147,7 @@ attribute [simp] funMap_add funMap_mul funMap_zero funMap_one relMap_le
 
 section
 
-variable {R : Type*} [Add R] [Mul R] [LE R] [One R] [Zero R] [CompatibleOrderedSemiring R]
+variable {R : Type*} [Add R] [Mul R] [LE R] [One R] [Zero R] [Language.arith.Structure R] [CompatibleOrderedSemiring R]
 
 theorem orderedStructureOfCompatibleOrderedSemiring : 
   Language.arith.OrderedStructure R := by
@@ -190,7 +192,8 @@ theorem realize_succ (x : arith.Term α) (v : α → R) :
 @[simp]
 theorem realize_le (x y : arith.Term α) (v : α → R) :
     Formula.Realize (x ≤' y) v = (Term.realize v x ≤ Term.realize v y) := by
-  simp [mul_def, funMap_mul]
+  simp
+
 
 end
 
@@ -209,8 +212,8 @@ This is a `def` and not an `instance`, because the path
 `Ring` => `Language.ring.Structure` => `Ring` cannot be made to
 commute by definition
 -/
-def compatibleOrderedSemiringOfOrderedSemiring (R : Type*) [Add R] [Mul R] [LE R] [One R] [Zero R] :
-    CompatibleOrderedSemiring R :=
+instance arithStructureOfOrderedSemiring (R : Type*) [Add R] [Mul R] [LE R] [One R] [Zero R] :
+    Language.arith.Structure R :=
   { funMap := fun {n} f =>
       match n, f with
       | _, .add => fun x => x 0 + x 1
@@ -219,13 +222,18 @@ def compatibleOrderedSemiringOfOrderedSemiring (R : Type*) [Add R] [Mul R] [LE R
       | _, .one => fun _ => 1
     RelMap := fun {n} f =>
       match n, f with
-      | _, .le => fun x => x 0 ≤ x 1,
-    funMap_add := fun _ => rfl,
-    funMap_mul := fun _ => rfl,
-    funMap_zero := fun _ => rfl,
-    funMap_one := fun _ => rfl,
-    relMap_le := fun _ => rfl}
+      | _, .le => fun x => x 0 ≤ x 1}
 
+instance compatibleOrderedSemiringOfOrderedSemiring (R : Type*) [Add R] [Mul R] [LE R] [One R] [Zero R] :
+    CompatibleOrderedSemiring R :=
+  {funMap_add := fun _ => rfl,
+   funMap_mul := fun _ => rfl,
+   funMap_zero := fun _ => rfl,
+   funMap_one := fun _ => rfl,
+   relMap_le := fun _ => rfl}
+   
+instance natCompatibleOrderedSemiring : CompatibleOrderedSemiring ℕ :=
+  compatibleOrderedSemiringOfOrderedSemiring ℕ
 
 variable (R : Type*) [Language.arith.Structure R]
 
