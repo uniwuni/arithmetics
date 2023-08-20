@@ -8,6 +8,7 @@ open Language Structure
 variable {L : Language} {n : ℕ}
 --variable {l : ℕ} {φ ψ : L.BoundedFormula α l} {θ : L.BoundedFormula α l.succ}
 namespace Term
+/- consider spezialisierung auf eine variable und höchsten index -/
 def liftAt' {n : ℕ} (n' m : ℕ) : L.Term (Sum α (Fin n)) → L.Term (Sum α (Fin (n' + n))) :=
   relabel (Sum.map id fun i => if ↑i < m then Fin.castLE (Nat.le_add_left n n') i else Fin.natAdd n' i)
 end Term
