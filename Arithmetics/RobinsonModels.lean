@@ -9,7 +9,7 @@ open Language arith Structure
 
 /-- The natural numbers are a model of Robinson arithmetic.
 -/
-theorem nat_models_robinson :
+instance nat_models_robinson :
   ℕ ⊨ Q := by
   simp only [Q, Set.mem_insert_iff, Set.mem_singleton_iff, model_iff, forall_eq_or_imp, forall_eq]
   split_ands
@@ -55,7 +55,7 @@ theorem nat_models_robinson :
     rfl
 
 section
-variable {R : Type*} [Add R] [Mul R] [LE R] [One R] [Zero R] [CompatibleOrderedSemiring R]
+variable {R : Type} [Add R] [Mul R] [LE R] [One R] [Zero R] [CompatibleOrderedSemiring R]
 variable [RobinsonStructure R]
 open RobinsonStructure
 open CompatibleOrderedSemiring
@@ -263,9 +263,21 @@ lemma qb_complete {n} {Φ : arith.BoundedFormula α n} (h : FirstOrder.Language.
       have h6 := (qb_complete h₁ (fun x => f x) (Fin.snoc (fun x => k x) a)).mpr h5
       exact h6
 
+lemma qbEquiv_complete {n} {Φ : arith.BoundedFormula α n} (h : FirstOrder.Language.BoundedFormula.QBEquiv Q Φ) (f : _) (k : _):
+  BoundedFormula.Realize (M := ℕ) Φ f k ↔ BoundedFormula.Realize (M := R) Φ (λ x ↦ OfNat.ofNat (f x)) (λ x ↦ OfNat.ofNat (k x)) := by
+  trans
+  · exact SemanticallyEquivalent.realize_bd_iff (M := ℕ) (T := Q) h.equiv
+  · trans
+    · apply qb_complete (R := R) h.isQB
+    · have: R ⊨ Q := by
+        apply satisfies_robinson_iff.mpr
+        infer_instance
+      have h3 := SemanticallyEquivalent.realize_bd_iff (M := R) (T := Q) h.equiv (v := (λ x ↦ OfNat.ofNat (f x))) (xs := (λ x ↦ OfNat.ofNat (k x)))
+      exact h3.symm
+
 /-- Robinson arithmetic is $\Sigma_1$-complete.
 -/
-lemma exists_complete {Φ : arith.BoundedFormula Empty 1} (h : FirstOrder.Language.BoundedFormula.IsQB Φ) :
+lemma exists_qb_complete {Φ : arith.BoundedFormula Empty 1} (h : FirstOrder.Language.BoundedFormula.IsQB Φ) :
   BoundedFormula.Realize (M := ℕ) Φ.ex default default → BoundedFormula.Realize (M := R) Φ.ex default default := by
   rw[BoundedFormula.realize_ex, BoundedFormula.realize_ex]  
   rintro ⟨x, hx⟩
@@ -277,8 +289,19 @@ lemma exists_complete {Φ : arith.BoundedFormula Empty 1} (h : FirstOrder.Langua
   apply h2
   convert hx2
 
-
+lemma exists_qbEquiv_complete {Φ : arith.BoundedFormula Empty 1} (h : FirstOrder.Language.BoundedFormula.QBEquiv Q Φ) :
+  BoundedFormula.Realize (M := ℕ) Φ.ex default default → BoundedFormula.Realize (M := R) Φ.ex default default := by
+  rw[BoundedFormula.realize_ex, BoundedFormula.realize_ex]  
+  rintro ⟨x, hx⟩
+  use OfNat.ofNat x
+  have hx2 := hx
+  rw[qbEquiv_complete (R := R) h] at hx
+  have h2 := (qbEquiv_complete (R := R) h default (λ _ ↦ x)).mp
+  convert_to BoundedFormula.Realize (M := R) Φ (fun x => OfNat.ofNat ((default : Empty → ℕ) x)) fun _ => OfNat.ofNat x using 1
+  apply h2
+  convert hx2
 end
+
 end Arith.Robinson
 
 end FirstOrder
