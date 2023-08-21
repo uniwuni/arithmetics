@@ -181,7 +181,7 @@ def closed_under_function_formula {n} (χ : L.BoundedFormula α 1) (f : Function
       lt_self_iff_false, cast_eq, dite_false, dite_eq_ite, Nat.cast_ofNat, Term.realize_var, Sum.elim_inr, ite_false,
       Fin.coe_eq_castSucc, Term.realize_func, Fin.coe_castSucc, Fin.is_lt, ite_true] at h1 
     rw[h1] at pt
-    convert pt with a b
+    convert pt with _ b
     fin_cases b <;> simp
   · intro h x hx y hy
     use funMap f ![x, y]
@@ -192,7 +192,19 @@ def closed_under_function_formula {n} (χ : L.BoundedFormula α 1) (f : Function
       Fin.coe_castSucc, Fin.is_lt, ite_true]
     congr! with i
     fin_cases i <;> simp
- 
+
+def relativization_substructure₂ (χ : L.BoundedFormula α 1) (hl : ∀ n, L.Functions n → n = 0 ∨ n = 1 ∨ n = 2) (k : _)
+  (hc : Formula.Realize (M := R) (closed_under_function_formula χ f : L.Formula α) k) : 
+  L.Substructure R where
+  carrier := {x | BoundedFormula.Realize χ k (λ _ ↦ x)}
+  fun_mem := by
+    intro n f xs h
+    specialize hl _ f
+    rcases hl with hl|hl|hl
+    · sorry
+    
+
+
 end BoundedFormula
 
 section 
