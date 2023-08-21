@@ -297,42 +297,6 @@ variable (χ : L.BoundedFormula Empty 1) [AtMostBinaryFunctions L] [ClosedUnderF
         rw[pφ]
         convert h
         rw[Fin.comp_snoc]
-
-@[simp] lemma relativizationSubstructure₂_forall_holds :
-  RelativizationSubstructure₂ (R := R) χ ⊨ ∀' χ := by
-  rintro ⟨x, h⟩
-  rw[relativizationSubstructure₂_realizes_iff]
-  cases χ with
-  | falsum => exact h
-  | equal a b =>
-    have h1 := h
-    simp only [relativizationSubstructure₂_mem, Realize] at h1
-    simp only [Realize]
-    rw[Subsingleton.allEq default (Subtype.val ∘ (default : Empty → { x // x ∈ (↑ (RelativizationSubstructure₂ (R := R) (equal a b)) : Set R) }))]
-    have : Subtype.val ∘ Fin.snoc (default : Fin 0 → _) ({ val := x, property := h } : { x // x ∈ (↑ (RelativizationSubstructure₂ (R := R) (equal a b)) : Set R) }) = λ _ ↦ x := by
-      ext i
-      let 0 := i
-      simp[Fin.snoc]
-    rw[this]
-    rw[Subsingleton.allEq (Subtype.val ∘ default) default, h1]
-  | rel r t => 
-    have h1 := h
-    simp only [relativizationSubstructure₂_mem, Realize] at h1
-    simp only [Realize]
-    rw[Subsingleton.allEq default (Subtype.val ∘ (default : Empty → { x // x ∈ (↑ (RelativizationSubstructure₂ (R := R) (rel r t)) : Set R) }))]
-    have : Subtype.val ∘ Fin.snoc (default : Fin 0 → _) ({ val := x, property := h } : { x // x ∈ (↑ (RelativizationSubstructure₂ (R := R) (rel r t)) : Set R) }) = λ _ ↦ x := by
-      ext i
-      let 0 := i
-      simp[Fin.snoc]
-    rw[this]
-    rw[Subsingleton.allEq (Subtype.val ∘ default) default]
-    exact h1
-  | imp φ ψ => sorry
-  | all φ => sorry
-
-
-  
-
 end
 
 
