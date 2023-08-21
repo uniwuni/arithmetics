@@ -36,20 +36,20 @@ instance (n : ℕ) : DecidableEq (Language.arith.Functions n) := by
 instance (n : ℕ) : DecidableEq (Language.arith.Relations n) := by
   dsimp [Language.arith]; infer_instance
 
-/-- `RingFunc.add`, but with the defeq type `Language.ring.Functions 2` instead
-of `RingFunc 2` -/
+/-- `arithFunc.add`, but with the defeq type `Language.arith.Functions 2` instead
+of `arithFunc 2` -/
 abbrev addFunc : Language.arith.Functions 2 := add
 
-/-- `RingFunc.mul`, but with the defeq type `Language.ring.Functions 2` instead
-of `RingFunc 2` -/
+/-- `arithFunc.mul`, but with the defeq type `Language.arith.Functions 2` instead
+of `arithFunc 2` -/
 abbrev mulFunc : Language.arith.Functions 2 := mul
 
-/-- `RingFunc.zero`, but with the defeq type `Language.ring.Functions 0` instead
-of `RingFunc 0` -/
+/-- `arithFunc.zero`, but with the defeq type `Language.arith.Functions 0` instead
+of `arithFunc 0` -/
 abbrev zeroFunc : Language.arith.Functions 0 := zero
 
-/-- `RingFunc.zero`, but with the defeq type `Language.ring.Functions 0` instead
-of `RingFunc 0` -/
+/-- `arithFunc.one`, but with the defeq type `Language.arith.Functions 0` instead
+of `arithFunc 0` -/
 abbrev oneFunc : Language.arith.Functions 0 := one
 @[simp]
 abbrev leRel : Language.arith.Relations 2 := le
@@ -298,3 +298,6 @@ are local instances.
 end Arith
 
 end FirstOrder
+
+@[simp] lemma Fin.snoc_default_zero {a : α} : (Fin.snoc default a : Fin 1 → α) 0 = a := by
+  simp[Fin.snoc]

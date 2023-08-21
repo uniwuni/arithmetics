@@ -297,6 +297,23 @@ variable (χ : L.BoundedFormula Empty 1) [AtMostBinaryFunctions L] [ClosedUnderF
         rw[pφ]
         convert h
         rw[Fin.comp_snoc]
+
+@[simp]
+lemma relativizationSubstructure₂_qf_iff {φ : L.BoundedFormula Empty n} (hqf : IsQF φ) 
+  {xs : Fin n → RelativizationSubstructure₂ (R := R) χ} :
+    φ.Realize default xs ↔ φ.Realize (M := R) default (((↑) ∘ xs) : Fin n → R) := 
+  match hqf with
+  | IsQF.falsum => by rfl
+  | IsQF.of_isAtomic (IsAtomic.rel r ts) => by
+    rw[relativizationSubstructure₂_realizes_iff]
+    simp only [relativize, realize_rel, Realize]
+  | IsQF.of_isAtomic (IsAtomic.equal a b) => by
+    rw[relativizationSubstructure₂_realizes_iff]
+    simp only [relativize, realize_bdEqual, Realize]
+  | IsQF.imp h₁ h₂ => by
+    simp only [realize_imp]
+    rw[relativizationSubstructure₂_qf_iff h₁, relativizationSubstructure₂_qf_iff h₂]
+
 end
 
 
