@@ -1,7 +1,26 @@
 import Arithmetics.QBFormulas
 import Mathlib.ModelTheory.Substructures
 import Mathlib.Tactic.FinCases
+
+lemma Fin.append_snoc {m} (k1 : Fin n → α) (k2 : Fin m → α) (b : α) :
+  (Fin.snoc (Fin.append k1 k2) b) = Fin.append k1 (Fin.snoc k2 b) := by
+  have h: b = ![b] 0 := by simp
+  rw[h, ← Fin.append_right_eq_snoc]
+  rw[Fin.append_assoc]
+  ext x
+  simp
+  rw[Fin.append_right_eq_snoc]
+  congr
+
+
+lemma Fin.natAdd_eq_last : ((Fin.natAdd n 0) : Fin (n+1)) = Fin.last n  := by 
+          apply Fin.eq_of_val_eq
+          simp 
+
 namespace FirstOrder.Language
+
+class AtMostBinaryFunctions (L : Language) where
+  at_most_binary : ∀ n, L.Functions n → n ≤ 2
 
 open FirstOrder.Language
 open FirstOrder
@@ -34,21 +53,7 @@ end BoundedFormula
 section
 variable {R : Type*} [Structure L R]
 namespace BoundedFormula
-@[simp] lemma BoundedFormula.realize_falsum {n} (f : α → R) (k : Fin n → R) : Realize (L := L) (M := R) falsum f k ↔ False := by rfl
-lemma Fin.append_snoc {m} (k1 : Fin n → α) (k2 : Fin m → α) (b : α) :
-  (Fin.snoc (Fin.append k1 k2) b) = Fin.append k1 (Fin.snoc k2 b) := by
-  have h: b = ![b] 0 := by simp
-  rw[h, ← Fin.append_right_eq_snoc]
-  rw[Fin.append_assoc]
-  ext x
-  simp
-  rw[Fin.append_right_eq_snoc]
-  congr
-
-
-lemma Fin.natAdd_eq_last : ((Fin.natAdd n 0) : Fin (n+1)) = Fin.last n  := by 
-          apply Fin.eq_of_val_eq
-          simp 
+@[simp] lemma realize_falsum {n} (f : α → R) (k : Fin n → R) : Realize (L := L) (M := R) falsum f k ↔ False := by rfl
 
 lemma liftAt_append {m} (χ : L.BoundedFormula α m) (k1 k2 : _) : Realize (M := R) (liftAt' n χ) f (Fin.append k1 k2) ↔ Realize (M := R) χ f k2 := match χ with
   | ⊥ => by simp only [liftAt', mapTermRel, realize_bot, iff_false]; exact id
@@ -120,9 +125,13 @@ lemma relativize_ex_aux {φ : L.BoundedFormula α (n + 1)}  (χ : L.BoundedFormu
   BoundedFormula.Realize (M := R) ((χ.liftAt' n) ⊓ φ).ex f k
     ↔ (∃ x, BoundedFormula.Realize (M := R) χ f (λ _ ↦ x) ∧ BoundedFormula.Realize (M := R) φ f (Fin.snoc k x)) := by simp  
 
+
 def closed_under_function_formula {n} (χ : L.BoundedFormula α 1) (f : Functions L n) : L.Formula α :=
   relativize χ (Term.bdEqual (&(n : Fin (n+1))) (func f fun i => &i)).ex.alls
 
+
+class ClosedUnderFunctions (χ : L.BoundedFormula α 1) where
+  isClosedUnderFunctions : ∀k : _, ∀n, ∀ f : L.Functions n, Formula.Realize (M := R) (closed_under_function_formula χ f : L.Formula α) k
 
 @[simp] lemma realize_closed_under_function_iff₀ (χ : L.BoundedFormula α 1) (f : Functions L 0) (k : _):
   Formula.Realize (M := R) (closed_under_function_formula χ f) k ↔ 
@@ -193,16 +202,138 @@ def closed_under_function_formula {n} (χ : L.BoundedFormula α 1) (f : Function
     congr! with i
     fin_cases i <;> simp
 
-def relativization_substructure₂ (χ : L.BoundedFormula α 1) (hl : ∀ n, L.Functions n → n = 0 ∨ n = 1 ∨ n = 2) (k : _)
-  (hc : Formula.Realize (M := R) (closed_under_function_formula χ f : L.Formula α) k) : 
+def RelativizationSubstructure₂' (χ : L.BoundedFormula α 1) [AtMostBinaryFunctions L] (k : α → R)
+  [ClosedUnderFunctions (R := R) χ] : 
   L.Substructure R where
   carrier := {x | BoundedFormula.Realize χ k (λ _ ↦ x)}
   fun_mem := by
-    intro n f xs h
-    specialize hl _ f
-    rcases hl with hl|hl|hl
-    · sorry
-    
+    have hc := ClosedUnderFunctions.isClosedUnderFunctions (χ := χ) k
+    intro m f xs h
+    have hl := AtMostBinaryFunctions.at_most_binary _ f
+    match m with
+    | 0 =>
+      simp only [Set.mem_setOf_eq]
+      specialize hc 0 f
+      rw[realize_closed_under_function_iff₀] at hc
+      convert hc
+    | 1 =>
+      simp only [Set.mem_setOf_eq]
+      specialize hc 1 f
+      rw[realize_closed_under_function_iff₁] at hc
+      apply hc
+      specialize h 0
+      simp only [Set.mem_setOf_eq] at h
+      convert h
+    | 2 => 
+      simp only [Set.mem_setOf_eq]
+      specialize hc 2 f
+      rw[realize_closed_under_function_iff₂] at hc
+      specialize hc (xs 0) (xs 1)
+      have h0 := h 0
+      have h1 := h 1
+      simp only [Set.mem_setOf_eq] at h0 h1
+      convert hc h0 h1
+      ext i
+      fin_cases i <;> simp
+    | n + 3 => 
+      linarith[hl]
+
+def RelativizationSubstructure₂ (χ : L.BoundedFormula Empty 1) [AtMostBinaryFunctions L]
+  [ClosedUnderFunctions (R := R) χ] : L.Substructure R := RelativizationSubstructure₂' χ default
+
+section
+variable (χ : L.BoundedFormula Empty 1) [AtMostBinaryFunctions L] [ClosedUnderFunctions (R := R) χ]
+
+@[simp] lemma relativizationSubstructure₂_mem (x : R) :
+    x ∈ RelativizationSubstructure₂ χ ↔ BoundedFormula.Realize χ default (λ _ ↦ x) := by
+  simp only [RelativizationSubstructure₂, RelativizationSubstructure₂']
+  simp_rw[← Substructure.mem_carrier, Set.mem_setOf_eq]
+
+@[simp] lemma relativizationSubstructure₂_realizes_iff {n : ℕ} (φ : L.BoundedFormula Empty n)
+  (v : Fin n → RelativizationSubstructure₂ (R := R) χ):
+  BoundedFormula.Realize (M := RelativizationSubstructure₂ (R := R) χ) φ default v ↔ 
+  BoundedFormula.Realize (M := R) (relativize χ φ) default (((↑) ∘ v) : Fin n → R) := by induction φ with
+    | falsum => simp
+    | imp φ ψ pφ pψ =>
+      simp only [realize_imp, relativize]
+      apply imp_congr
+      · apply pφ
+      · apply pψ
+    | rel r xs =>
+      rw[relativize, Realize, Realize, RelMap]
+      simp only [Substructure.inducedStructure]
+      conv =>
+        lhs
+        arg 2
+        ext
+        rw[← realize_term_substructure]
+        arg 1
+        rw[Sum.comp_elim]
+      conv =>
+        lhs 
+        arg 2
+        ext
+        arg 1
+        rw[Subsingleton.allEq (Subtype.val ∘ default) default]
+    | equal x y =>
+      rw[relativize, Realize, Realize]
+      simp only [Substructure.inducedStructure]
+      rw[Subtype.ext_iff]
+      rw[← realize_term_substructure, ← realize_term_substructure]
+      rw[Sum.comp_elim, Subsingleton.allEq (Subtype.val ∘ default) default]
+    | all φ pφ =>
+      rw[relativize, Realize, Realize]
+      simp
+      apply forall_congr'
+      intro x
+      constructor
+      · intro h is_χ
+        specialize h is_χ
+        rw[pφ] at h
+        convert h
+        rw[Fin.comp_snoc]
+      · intro h prf
+        specialize h prf
+        rw[pφ]
+        convert h
+        rw[Fin.comp_snoc]
+
+@[simp] lemma relativizationSubstructure₂_forall_holds :
+  RelativizationSubstructure₂ (R := R) χ ⊨ ∀' χ := by
+  rintro ⟨x, h⟩
+  rw[relativizationSubstructure₂_realizes_iff]
+  cases χ with
+  | falsum => exact h
+  | equal a b =>
+    have h1 := h
+    simp only [relativizationSubstructure₂_mem, Realize] at h1
+    simp only [Realize]
+    rw[Subsingleton.allEq default (Subtype.val ∘ (default : Empty → { x // x ∈ (↑ (RelativizationSubstructure₂ (R := R) (equal a b)) : Set R) }))]
+    have : Subtype.val ∘ Fin.snoc (default : Fin 0 → _) ({ val := x, property := h } : { x // x ∈ (↑ (RelativizationSubstructure₂ (R := R) (equal a b)) : Set R) }) = λ _ ↦ x := by
+      ext i
+      let 0 := i
+      simp[Fin.snoc]
+    rw[this]
+    rw[Subsingleton.allEq (Subtype.val ∘ default) default, h1]
+  | rel r t => 
+    have h1 := h
+    simp only [relativizationSubstructure₂_mem, Realize] at h1
+    simp only [Realize]
+    rw[Subsingleton.allEq default (Subtype.val ∘ (default : Empty → { x // x ∈ (↑ (RelativizationSubstructure₂ (R := R) (rel r t)) : Set R) }))]
+    have : Subtype.val ∘ Fin.snoc (default : Fin 0 → _) ({ val := x, property := h } : { x // x ∈ (↑ (RelativizationSubstructure₂ (R := R) (rel r t)) : Set R) }) = λ _ ↦ x := by
+      ext i
+      let 0 := i
+      simp[Fin.snoc]
+    rw[this]
+    rw[Subsingleton.allEq (Subtype.val ∘ default) default]
+    exact h1
+  | imp φ ψ => sorry
+  | all φ => sorry
+
+
+  
+
+end
 
 
 end BoundedFormula
