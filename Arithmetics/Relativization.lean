@@ -12,6 +12,11 @@ lemma Fin.append_snoc {m} (k1 : Fin n → α) (k2 : Fin m → α) (b : α) :
   rw[Fin.append_right_eq_snoc]
   congr
 
+lemma Fin.one_is_const (x : Fin 1 → α) : x = (λ _ ↦ x 0) := by ext x; let 0 := x; simp
+
+@[simp] lemma Fin.snoc_one_of_zero : (Fin.snoc default m : Fin 1 → α) i = m := by
+  let 0 := i
+  simp[snoc]
 
 lemma Fin.natAdd_eq_last : ((Fin.natAdd n 0) : Fin (n+1)) = Fin.last n  := by 
           apply Fin.eq_of_val_eq
@@ -40,7 +45,7 @@ end Term
 
 namespace BoundedFormula
 variable (χ : L.Formula (α ⊕ Fin 1))
-@[simp] def relativize : {n : ℕ} → L.BoundedFormula α n → L.BoundedFormula α n
+def relativize : {n : ℕ} → L.BoundedFormula α n → L.BoundedFormula α n
 | _, falsum => falsum
 | _, imp φ ψ => imp (relativize φ) (relativize ψ)
 | _, rel r xs => rel r xs
@@ -50,6 +55,11 @@ end BoundedFormula
 section
 variable {R : Type*} [Structure L R] 
 namespace BoundedFormula
+lemma realize_iff_formula_realize (φ : L.Formula α) (k : α → R) (l : Fin 0 → R) :
+  BoundedFormula.Realize φ k l ↔ Formula.Realize φ k := by
+  simp only [Formula.Realize]
+  have : l = default := by ext x; fin_cases x
+  rw[this]
 @[simp] lemma realize_falsum {n} (f : α → R) (k : Fin n → R) : Realize (L := L) (M := R) falsum f k ↔ False := by rfl
 /-
 lemma liftAt_append {m} (χ : L.BoundedFormula α m) (k1 k2 : _) : Realize (M := R) (liftAt' n χ) f (Fin.append k1 k2) ↔ Realize (M := R) χ f k2 := match χ with
@@ -126,9 +136,6 @@ lemma relativize_ex_aux {φ : L.BoundedFormula α (n + 1)} (f : _) (k : _) :
   apply exists_congr
   simp
   intro a _
-  rw[← Formula.Realize]
-  have h : (Fin.snoc k a ∘ Fin.natAdd (n + 1)) = (default : Fin 0 → R)  := by ext a; fin_cases a
-  rw[h, ← Formula.Realize]
   congr!
   ext x
   rcases x with x|x
@@ -153,7 +160,7 @@ class ClosedUnderFunctions where
     Fin.castAdd_zero, Fin.cast_refl, Function.comp.right_id]
   constructor 
   · rintro ⟨a, ha1, ha2⟩
-    have : ((fun i => a) ∘ Fin.natAdd (0 + 1)) = (default : Fin 0 → R) := by ext x; fin_cases x
+    have : ((fun _ => a) ∘ Fin.natAdd (0 + 1)) = (default : Fin 0 → R) := by ext x; fin_cases x
     rw[this, ← Formula.Realize] at ha1
     simp only [Realize, Term.realize_var, Sum.elim_inr, Term.realize_func] at ha2 
     convert ha1
@@ -179,60 +186,111 @@ class ClosedUnderFunctions where
      
 
 
-@[simp] lemma realize_closed_under_function_iff₁ (χ : L.BoundedFormula α 1) (f : Functions L 1) (k : _):
+@[simp] lemma realize_closed_under_function_iff₁ (f : Functions L 1) (k : _):
   Formula.Realize (M := R) (closed_under_function_formula χ f) k ↔ 
-  (∀x,  BoundedFormula.Realize χ k x → BoundedFormula.Realize χ k (λ _ ↦ funMap f x)) := by
-  rw[closed_under_function_formula, alls, Formula.Realize, alls, relativize]
-  simp only [Nat.cast_one, Function.comp_apply, Fin.coe_fin_one, Nat.cast_zero, realize_all, realize_imp, liftAt_snoc,
-    relativize_ex, realize_ex, realize_inf]
+  (∀x,  Formula.Realize χ (Sum.elim k x) → Formula.Realize χ (Sum.elim k (λ _ ↦ funMap f x))) := by
+  rw[closed_under_function_formula, alls, Formula.Realize, alls]
+  simp only [relativize, Nat.cast_zero, zero_add, Nat.cast_one, Function.comp_apply, Fin.coe_fin_one, realize_all,
+    realize_imp, realize_relabel, Nat.add_zero, Fin.castAdd_zero, Fin.cast_refl, Function.comp.right_id, realize_falsum]
+  simp only [Formula.Realize._eq_1]
   constructor
   · rintro h x r
     have: x = λ _ ↦ x 0 := by ext a; let 0 := a; rfl
     rw[this] at r
-    obtain ⟨a, fa, eq⟩ := h _ r
-    simp only [Realize, Fin.snoc, Nat.lt_one_iff, Fin.castSucc_castLT, Fin.coe_fin_one, lt_self_iff_false,
-      Fin.coe_castLT, cast_eq, dite_false, dite_eq_ite, Term.realize_var, Sum.elim_inr, ite_false, Term.realize_func,
-      ite_true] at eq 
-    rw[eq, ← this] at fa
-    exact fa
+    have : (Sum.elim k (Fin.snoc (default : Fin 0 → _)  (x 0)) ∘ Sum.map id fun x => 0) = (Sum.elim k (fun _ ↦ x 0) : α ⊕ Fin 1 → R) := by
+      ext (i|_)
+      · simp
+      · simp only [Function.comp_apply, Sum.map_inr, Sum.elim_inr, Fin.snoc_one_of_zero]
+    specialize h (x 0) (by rw[← this] at r; convert r) 
+    rw[← not_exists_not] at h
+    simp only [realize_iff_formula_realize, exists_prop, and_true, not_forall] at h 
+    rcases h with ⟨y,hy1,hy2⟩ 
+    simp only [Fin.snoc, Nat.lt_one_iff, Fin.castSucc_castLT, Fin.coe_fin_one, lt_self_iff_false, Fin.coe_castLT,
+      cast_eq, dite_false, dite_eq_ite, Formula.Realize._eq_1, Realize, Term.realize_var, Sum.elim_inr, ite_false,
+      Term.realize_func, ite_true] at hy1 hy2 
+    rw[hy2, Sum.elim_comp_map] at hy1
+    convert hy1 with a
+    let 0 := a
+    simp only [Function.comp_apply, ite_false]
+    rw[Fin.one_is_const x]
   · rintro h x r
+    rw[← not_exists_not]
+    simp only [exists_prop, and_true, not_forall]
     use funMap f (λ _ ↦ x)
-    simp only [r, relativize, true_and]
-    simp only [Realize, Fin.snoc, Nat.lt_one_iff, Fin.castSucc_castLT, Fin.coe_fin_one, lt_self_iff_false,
-      Fin.coe_castLT, cast_eq, dite_false, dite_eq_ite, Term.realize_var, Sum.elim_inr, ite_false, Term.realize_func,
-      ite_true, and_true]
-    apply h _ r
+    constructor
+    · rw[Sum.elim_comp_map]
+      rw[Sum.elim_comp_map] at r
+      specialize h (λ _ ↦ x)
+      have : Realize χ (Sum.elim k fun _ => x) default := by convert r
+      specialize h this
+      convert h
+            
+    · simp[Realize, Fin.snoc] 
     
-@[simp] lemma realize_closed_under_function_iff₂ (χ : L.BoundedFormula α 1) (f : Functions L 2) (k : _):
+@[simp] lemma realize_closed_under_function_iff₂ (f : Functions L 2) (k : _):
   Formula.Realize (M := R) (closed_under_function_formula χ f) k ↔ 
-  (∀x y, BoundedFormula.Realize χ k (λ _ ↦ x) → 
-        BoundedFormula.Realize χ k (λ _ ↦ y) → BoundedFormula.Realize χ k (λ _ ↦ funMap f ![x,y])) := by
-  rw[closed_under_function_formula, alls, Formula.Realize, alls, alls, relativize, relativize]
-  simp only [Nat.cast_one, Function.comp_apply, Fin.coe_fin_one, Nat.cast_zero, realize_all, realize_imp, liftAt_snoc,
-    relativize_ex, realize_ex, realize_inf]
-  constructor  
-  · intro h x y h1 h2
-    obtain ⟨t, pt, h1⟩ := h x h1 y h2
-    simp only [Realize, Fin.snoc, Fin.castSucc_castLT, Fin.coe_castLT, Nat.lt_one_iff, Fin.coe_fin_one,
-      lt_self_iff_false, cast_eq, dite_false, dite_eq_ite, Nat.cast_ofNat, Term.realize_var, Sum.elim_inr, ite_false,
-      Fin.coe_eq_castSucc, Term.realize_func, Fin.coe_castSucc, Fin.is_lt, ite_true] at h1 
-    rw[h1] at pt
-    convert pt with _ b
-    fin_cases b <;> simp
-  · intro h x hx y hy
-    use funMap f ![x, y]
-    specialize h x y hx hy
-    simp only [h, relativize, Nat.cast_ofNat, Fin.coe_eq_castSucc, true_and]
+  (∀x y,  Formula.Realize χ (Sum.elim k (λ_ ↦ x)) → 
+        Formula.Realize χ (Sum.elim k (λ _ ↦ y)) → Formula.Realize χ (Sum.elim k (λ _ ↦ funMap (M := R) f ![x,y]))) := by
+  rw[closed_under_function_formula, alls, Formula.Realize, alls, alls]
+  simp only [relativize, Nat.cast_zero, zero_add, Nat.cast_one, Nat.cast_add, Nat.cast_ofNat, Function.comp_apply,
+    Fin.coe_eq_castSucc, realize_all, realize_imp, realize_relabel, Nat.add_zero, Fin.castAdd_zero, Fin.cast_refl,
+    Function.comp.right_id, realize_falsum]
+  simp only [Formula.Realize._eq_1]
+  constructor
+  · intro h x y rx ry
+    specialize h x _ y _
+    · convert rx
+      ext (x|_)
+      · simp
+      · simp
+    · convert ry
+      ext (x|x)
+      · simp
+      · simp[Fin.snoc]
+    rw[← not_exists_not] at h
+    simp only [exists_prop, and_true, not_forall] at h 
+    rcases h with ⟨z, h1z, h2z⟩
     simp only [Realize, Fin.snoc, Fin.castSucc_castLT, Fin.coe_castLT, Nat.lt_one_iff, Fin.coe_fin_one,
       lt_self_iff_false, cast_eq, dite_false, dite_eq_ite, Term.realize_var, Sum.elim_inr, ite_false, Term.realize_func,
+      Fin.coe_castSucc, Fin.is_lt, ite_true] at h2z
+    simp only [h2z] at h1z
+    convert h1z
+    ext x
+    rcases x with x|z
+    · simp
+    · simp only [Sum.elim_inr, Fin.snoc, Fin.castSucc_castLT, Fin.coe_castLT, Nat.lt_one_iff, Fin.coe_fin_one,
+      lt_self_iff_false, cast_eq, dite_false, dite_eq_ite, Function.comp_apply, Sum.map_inr, ite_false]
+      congr
+      ext i
+      fin_cases i <;> simp
+  · intro h x rx y ry 
+    rw[← not_exists_not]
+    simp only [exists_prop, and_true, not_forall]
+    use funMap (M := R) f ![x,y]
+    constructor
+    · convert h x y _ _
+      · ext (i|i)
+        · simp
+        · simp[Fin.snoc]
+      · convert rx
+        ext (i|i)
+        · simp
+        · simp[Fin.snoc]
+      · convert ry
+        ext (i|i)
+        · simp
+        · simp[Fin.snoc]
+    · simp only [Realize, Fin.snoc, Fin.castSucc_castLT, Fin.coe_castLT, Nat.lt_one_iff, Fin.coe_fin_one,
+      lt_self_iff_false, cast_eq, dite_false, dite_eq_ite, Term.realize_var, Sum.elim_inr, ite_false, Term.realize_func,
       Fin.coe_castSucc, Fin.is_lt, ite_true]
-    congr! with i
-    fin_cases i <;> simp
+      congr
+      ext i
+      fin_cases i <;> simp
 
-def RelativizationSubstructure₂' (χ : L.BoundedFormula α 1) [AtMostBinaryFunctions L] (k : α → R)
+def RelativizationSubstructure₂' [AtMostBinaryFunctions L] (k : α → R)
   [ClosedUnderFunctions (R := R) χ] : 
   L.Substructure R where
-  carrier := {x | BoundedFormula.Realize χ k (λ _ ↦ x)}
+  carrier := {x | Formula.Realize χ (Sum.elim k (λ _ ↦ x))}
   fun_mem := by
     have hc := ClosedUnderFunctions.isClosedUnderFunctions (χ := χ) k
     intro m f xs h
@@ -265,22 +323,28 @@ def RelativizationSubstructure₂' (χ : L.BoundedFormula α 1) [AtMostBinaryFun
     | n + 3 => 
       linarith[hl]
 
-def RelativizationSubstructure₂ (χ : L.BoundedFormula Empty 1) [AtMostBinaryFunctions L]
+
+def RelativizationSubstructure₂ (χ : L.Formula (Empty ⊕ Fin 1)) [AtMostBinaryFunctions L]
   [ClosedUnderFunctions (R := R) χ] : L.Substructure R := RelativizationSubstructure₂' χ default
 
 section
-variable (χ : L.BoundedFormula Empty 1) [AtMostBinaryFunctions L] [ClosedUnderFunctions (R := R) χ]
+variable (χ : L.Formula (Empty ⊕ Fin 1)) [AtMostBinaryFunctions L] [ClosedUnderFunctions (R := R) χ]
 
 @[simp] lemma relativizationSubstructure₂_mem (x : R) :
-    x ∈ RelativizationSubstructure₂ χ ↔ BoundedFormula.Realize χ default (λ _ ↦ x) := by
+    x ∈ RelativizationSubstructure₂ χ ↔ Formula.Realize χ (λ _ ↦ x) := by
   simp only [RelativizationSubstructure₂, RelativizationSubstructure₂']
   simp_rw[← Substructure.mem_carrier, Set.mem_setOf_eq]
+  rw[iff_iff_eq]
+  congr
+  ext ⟨a|a⟩
+  · simp
+
 
 @[simp] lemma relativizationSubstructure₂_realizes_iff {n : ℕ} (φ : L.BoundedFormula Empty n)
   (v : Fin n → RelativizationSubstructure₂ (R := R) χ):
   BoundedFormula.Realize (M := RelativizationSubstructure₂ (R := R) χ) φ default v ↔ 
   BoundedFormula.Realize (M := R) (relativize χ φ) default (((↑) ∘ v) : Fin n → R) := by induction φ with
-    | falsum => simp
+    | falsum => simp[relativize]
     | imp φ ψ pφ pψ =>
       simp only [realize_imp, relativize]
       apply imp_congr
@@ -315,15 +379,21 @@ variable (χ : L.BoundedFormula Empty 1) [AtMostBinaryFunctions L] [ClosedUnderF
       intro x
       constructor
       · intro h is_χ
-        specialize h is_χ
-        rw[pφ] at h
-        convert h
-        rw[Fin.comp_snoc]
+        specialize h _
+        · rw[relativizationSubstructure₂_mem, Formula.Realize]
+          convert is_χ with ⟨a|a⟩
+          · simp[Fin.snoc] 
+        · rw[pφ] at h
+          convert h
+          rw[Fin.comp_snoc]
       · intro h prf
-        specialize h prf
-        rw[pφ]
-        convert h
-        rw[Fin.comp_snoc]
+        specialize h _
+        · rw[relativizationSubstructure₂_mem, Formula.Realize] at prf
+          convert prf with ⟨a|a⟩
+          · simp
+        · rw[pφ]
+          convert h
+          rw[Fin.comp_snoc]
 
 @[simp]
 lemma relativizationSubstructure₂_qf_iff {φ : L.BoundedFormula Empty n} (hqf : IsQF φ) 
