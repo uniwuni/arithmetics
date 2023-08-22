@@ -22,8 +22,8 @@ def addAssociativityForm' : arith.Formula (Fin 1) := ∀'∀'(((&0 + &1) + var (
 
   
 
-@[simp] lemma addAssociativityForm'_iff (z : R) :
-  addAssociativityForm'.Realize (M := R) (λ _ ↦ z) ↔ addAssociativityForm z := by
+@[simp] lemma addAssociativityForm'_iff (z : Fin 1 → R) :
+  addAssociativityForm'.Realize (M := R) z ↔ addAssociativityForm (z 0) := by
   simp[addAssociativityForm',addAssociativityForm]
   apply forall_congr'
   intro x
@@ -53,13 +53,10 @@ lemma addAssociativity_pred {z : R} (h : addAssociativityForm z) : addAssociativ
 def distributivityForm (z : R) := ∀ x : R, ∀ y : R, addAssociativityForm x → x * (y + z) = x * y + x * z
 /-- theres no way this genuinely worked what the hell -/
 def distributivityForm' : arith.Formula (Fin 1) :=
-  ∀'(BoundedFormula.relabel (λ _ ↦ (Sum.inr 0 : Fin 1 ⊕ Fin 1)) addAssociativityForm' ⟹ (∀' ((&0 * (&1 + var (Sum.inl 0))) =' ((&0 * &1) + (&0 * var (Sum.inl 0))))))
+  ∀'(∀' (BoundedFormula.relabel (λ _ ↦ (Sum.inr 0 : Fin 1 ⊕ Fin 2)) addAssociativityForm' ⟹ ((&0 * (&1 + var (Sum.inl 0))) =' ((&0 * &1) + (&0 * var (Sum.inl 0))))))
     
-
-
-
-@[simp] lemma distributivityForm'_iff (z : R) :
-  distributivityForm'.Realize (M := R) (λ _ ↦ z) ↔ distributivityForm z := by
+@[simp] lemma distributivityForm'_iff (z : Fin 1 → R) :
+  distributivityForm'.Realize (M := R) z ↔ distributivityForm (z 0) := by
   simp only [distributivityForm', Function.comp_apply, distributivityForm, addAssociativityForm']
   apply forall_congr'
   intro x
@@ -68,16 +65,7 @@ def distributivityForm' : arith.Formula (Fin 1) :=
     Nat.lt_one_iff, dite_eq_ite, Fin.coe_castLT, BoundedFormula.realize_relabel, BoundedFormula.realize_bdEqual,
     realize_add, Term.realize_var, Sum.elim_inr, Function.comp_apply, ite_false, ite_true, Sum.elim_inl, realize_mul,
     addAssociativityForm]
-  constructor
-  · intro h y hy
-    exact h hy y
-  · intro h hx a
-    exact h a hx
-    
-
-
-
-  
+ 
   
 @[simp] lemma distributivity_zero : distributivityForm 0 := by simp[distributivityForm]
 lemma distributivity_succ {z : R} (h : distributivityForm z) : distributivityForm (z + 1) := by
@@ -86,7 +74,19 @@ lemma distributivity_succ {z : R} (h : distributivityForm z) : distributivityFor
   exact h2
 
 
-def mulAssociativityForm (z : R) := ∀ x : R, ∀ y : R, addAssociativityForm x → distributivityForm y → (x * y) * z = x * (y * z) 
+def mulAssociativityForm (z : R) :=
+  ∀ x : R, ∀ y : R, addAssociativityForm x → distributivityForm y → (x * y) * z = x * (y * z) 
+def mulAssociativityForm' : arith.Formula (Fin 1) :=
+  ∀'(∀' (BoundedFormula.relabel (λ _ ↦ (Sum.inr 0 : Fin 1 ⊕ Fin 2)) addAssociativityForm' ⟹ BoundedFormula.relabel (λ _ ↦ (Sum.inr 1 : Fin 1 ⊕ Fin 2)) distributivityForm' ⟹
+      (((&0 * &1) * var (Sum.inl 0)) =' (&0 * (&1 * var (Sum.inl 0))))))
+
+@[simp] lemma mulAssociativityForm'_iff (z : Fin 1 → R) :
+  mulAssociativityForm'.Realize (M := R) z ↔ mulAssociativityForm (z 0) := by
+  simp only [mulAssociativityForm', Function.comp_apply, mulAssociativityForm]
+  apply forall_congr'
+  intro x
+  simp[BoundedFormula.realize_iff_formula_realize, Fin.snoc]
+
 @[simp]
 def mulAssociativity_zero : mulAssociativityForm 0 := by simp[mulAssociativityForm]
 
@@ -99,6 +99,14 @@ def mulAssociativity_succ {z : R} (h : mulAssociativityForm z) : mulAssociativit
 
 
 def zeroIdentityForm (z : R) := ∀ y : R, (0 : R) + y = z → y = z 
+def zeroIdentityForm' : arith.Formula (Fin 1) :=
+  ∀' ((0 + &0) =' var (Sum.inl 0) ⟹ &0 =' var (Sum.inl 0))
+
+@[simp] lemma zeroIdentityForm'_iff (z : Fin 1 → R) :
+  zeroIdentityForm'.Realize (M := R) z ↔ zeroIdentityForm (z 0) := by
+  simp only [zeroIdentityForm', Function.comp_apply, zeroIdentityForm]
+  rfl
+  
 @[simp]
 def zeroIdentity_zero : zeroIdentityForm 0 := by simp[zeroIdentityForm]
 
