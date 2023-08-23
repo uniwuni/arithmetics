@@ -106,7 +106,7 @@ def zeroIdentityForm' : arith.Formula (Fin 1) :=
   zeroIdentityForm'.Realize (M := R) z ↔ zeroIdentityForm (z 0) := by
   simp only [zeroIdentityForm', Function.comp_apply, zeroIdentityForm]
   rfl
-  
+
 @[simp]
 def zeroIdentity_zero : zeroIdentityForm 0 := by simp[zeroIdentityForm]
 
@@ -124,10 +124,99 @@ def zeroIdentity_succ {z : R} (h : zeroIdentityForm z) : zeroIdentityForm (z + 1
 def zeroIdentity_prop {z : R} (h : zeroIdentityForm (0 + z)) : z = 0 + z := h z rfl
 
 namespace Layers
-variable (φ : arith.BoundedFormula Empty 1)
-def c0 : 
+variable (φ : arith.Formula (Fin 1))
+def c0Form (z : R) :=
+  φ.Realize (M := R) (λ _ ↦ z) ∧ addAssociativityForm z ∧ distributivityForm z
+    ∧ mulAssociativityForm z ∧ zeroIdentityForm z
+
+def c0Form' : arith.Formula (Fin 1) :=
+  φ ⊓ addAssociativityForm' ⊓ distributivityForm' ⊓ mulAssociativityForm' ⊓ zeroIdentityForm'
+
+@[simp] lemma c0Form'_iff (z : Fin 1 → R) :
+  (c0Form' φ).Realize (M := R) z ↔ c0Form φ (z 0) := by
+  simp only [c0Form', Formula.realize_inf, addAssociativityForm'_iff, distributivityForm'_iff,
+    mulAssociativityForm'_iff, zeroIdentityForm'_iff, c0Form]
+  suffices h : (fun _ => z 0) = (z : Fin 1 → R) by
+    rw[h]
+    tauto
+  rw[← Fin.one_is_const]
+
+def c1Form (x : R) :=
+  ∀ y, ∀ z : R, y + z = x → addAssociativityForm z → c0Form φ y
+
+def c1Form' : arith.Formula (Fin 1) :=
+  ∀' ∀' ((&0 + &1) =' var (Sum.inl 0) ⟹
+    BoundedFormula.relabel (λ _ ↦ (Sum.inr 1 : Fin 1 ⊕ Fin 2)) addAssociativityForm' ⟹
+    BoundedFormula.relabel (λ _ ↦ (Sum.inr 0 : Fin 1 ⊕ Fin 2)) (c0Form' φ))
+
+@[simp] lemma c1Form'_iff (z : Fin 1 → R) :
+  (c1Form' φ).Realize (M := R) z ↔ c1Form φ (z 0) := by
+  simp only [c1Form', Function.comp_apply, c1Form]
+  apply forall_congr'
+  intro y
+  apply forall_congr'
+  intro z
+  simp only [Fin.snoc, zero_add, Nat.lt_one_iff, Fin.castSucc_castLT, Fin.coe_fin_one, lt_self_iff_false,
+    Fin.coe_castLT, cast_eq, dite_false, dite_eq_ite, BoundedFormula.realize_imp, BoundedFormula.realize_bdEqual,
+    realize_add, Term.realize_var, Sum.elim_inr, ite_true, ite_false, Sum.elim_inl, BoundedFormula.realize_relabel,
+    Nat.add_zero, Fin.castAdd_zero, Fin.cast_refl, Function.comp.right_id]
+  rw[iff_iff_eq]
+  congr
+  rw[BoundedFormula.realize_iff_formula_realize]
+  simp
+
+def c2Form (x : R) :=
+  ∀ y, c1Form φ y → c1Form φ (y + x)
+
+def c2Form' : arith.Formula (Fin 1) :=
+  ∀'
+  (BoundedFormula.relabel (λ _ ↦ (Sum.inr 0 : Fin 1 ⊕ Fin 1))
+    (c1Form' φ) ⟹
+   BoundedFormula.relabel (id : Fin 1 ⊕ Fin 1 → _)
+     (BoundedFormula.subst (c1Form' φ)
+       (λ _ ↦ var (Sum.inr 0) + var (Sum.inl 0) : _ → arith.Term (Fin 1 ⊕ Fin 1))))
+
+@[simp] lemma c2Form'_iff (z : Fin 1 → R) :
+  (c2Form' φ).Realize (M := R) z ↔ c2Form φ (z 0) := by
+  simp only [c2Form', c2Form]
+  apply forall_congr'
+  intro y
+  simp only [Fin.snoc, Fin.coe_fin_one, lt_self_iff_false, Fin.castSucc_castLT, cast_eq, dite_false,
+    BoundedFormula.realize_imp, BoundedFormula.realize_relabel, Nat.add_zero, Fin.castAdd_zero, Fin.cast_refl,
+    Function.comp.right_id, BoundedFormula.realize_iff_formula_realize, c1Form'_iff, Function.comp_apply, Sum.elim_inr]
+  rw[iff_iff_eq]
+  congr
+  rw[Formula.Realize]
+  rw[BoundedFormula.realize_subst]
+  rw[← Formula.Realize]
+  simp
+
+def c3Form (x : R) :=
+  c2Form φ x ∧ (∀ y, c2Form φ y → c2Form φ (y * x))
+
+def c3Form' : arith.Formula (Fin 1) :=
+  c2Form' φ ⊓
+  ∀'(BoundedFormula.relabel (λ _ ↦  (Sum.inr 0 : Fin 1 ⊕ Fin 1)) (c2Form' φ) ⟹
+     BoundedFormula.relabel (id : Fin 1 ⊕ Fin 1 → _)
+     (BoundedFormula.subst (c2Form' φ)
+       (λ _ ↦ var (Sum.inr 0) * var (Sum.inl 0) : _ → arith.Term (Fin 1 ⊕ Fin 1)))) 
+
+@[simp] lemma c3Form'_iff (z : Fin 1 → R) :
+  (c3Form' φ).Realize (M := R) z ↔ c3Form φ (z 0) := by
+  simp only [c3Form', Formula.realize_inf, c2Form'_iff, c3Form, and_congr_right_iff]
+  intro _
+  apply forall_congr'
+  intro y
+  simp only [BoundedFormula.realize_imp, BoundedFormula.realize_relabel, Nat.add_zero, Fin.castAdd_zero, Fin.cast_refl,
+    Function.comp.right_id]
+  apply imp_congr
+  · rw[BoundedFormula.realize_iff_formula_realize]
+    simp
+  · rw[BoundedFormula.realize_subst]
+    rw[BoundedFormula.realize_iff_formula_realize]
+    simp
 end Layers
-end Relativizers
+end Relativizer
 end
 end Arith.Robinson
 
