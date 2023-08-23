@@ -51,9 +51,25 @@ def relativize : {n : ℕ} → L.BoundedFormula α n → L.BoundedFormula α n
 | _, rel r xs => rel r xs
 | _, equal a b => equal a b
 | n, all φ => all (BoundedFormula.relabel (Sum.map id (λ _ ↦ (n : Fin (n+1)))) χ ⟹ (relativize φ))
+
+lemma qb_of_imp {φ ψ : L.BoundedFormula α n} (hqf : IsQF (φ.imp ψ)) : IsQF φ ∧ IsQF ψ := by
+  match hqf with
+  | IsQF.imp h₁ h₂ => exact ⟨h₁, h₂⟩
+
+@[simp] lemma relativize_of_qf {φ : L.BoundedFormula α n} (hqf : IsQF φ) : relativize χ φ = φ := by
+  induction hqf with
+  | falsum => rfl
+  | imp qf1 qf2 pφ pψ => simp only [relativize, imp.injEq]; tauto
+  | of_isAtomic a => rcases a; simp[relativize, Term.bdEqual]; simp[relativize, Relations.boundedFormula]
 end BoundedFormula
 section
 variable {R : Type*} [Structure L R] 
+namespace Formula
+lemma realize_iff_models (φ : L.Formula Empty) (k : Empty → R) :
+  Formula.Realize φ k ↔ R ⊨ φ := by
+  rw[Sentence.Realize]
+  congr!
+end Formula
 namespace BoundedFormula
 lemma realize_iff_formula_realize (φ : L.Formula α) (k : α → R) (l : Fin 0 → R) :
   BoundedFormula.Realize φ k l ↔ Formula.Realize φ k := by
@@ -397,6 +413,7 @@ variable (k : α → R)  (χ : L.Formula (α ⊕ Fin 1)) [AtMostBinaryFunctions 
           convert h
           rw[Fin.comp_snoc]
 
+
 @[simp]
 lemma relativizationSubstructure₂_qf_iff {φ : L.BoundedFormula α n} (hqf : IsQF φ) 
   {xs : Fin n → RelativizationSubstructure₂' (R := R) χ k} (k_in : ∀i, k i ∈ RelativizationSubstructure₂' (R := R) χ k) :
@@ -413,6 +430,18 @@ lemma relativizationSubstructure₂_qf_iff {φ : L.BoundedFormula α n} (hqf : I
     simp only [realize_imp]
     rw[relativizationSubstructure₂_qf_iff h₁, relativizationSubstructure₂_qf_iff h₂]
 
+
+lemma relativizationSubstructure_universal_of {φ : L.BoundedFormula α n} (hqf : IsQF φ) 
+   (k_in : ∀i, k i ∈ RelativizationSubstructure₂' (R := R) χ k) :
+    (φ.alls).Realize (M := R) k → φ.alls.Realize (M := RelativizationSubstructure₂' (R := R) χ k) (λ i ↦ ⟨k i, k_in i⟩) := by
+  intro h
+  rw[realize_alls]
+  rw[realize_alls] at h
+  intro xs
+  simp only [relativizationSubstructure₂'_realizes_iff]
+  rw[relativize_of_qf]
+  apply h
+  apply hqf
 end
 
 
