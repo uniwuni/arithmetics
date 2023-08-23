@@ -31,7 +31,7 @@ def addAssociativityForm' : arith.Formula (Fin 1) := ∀'∀'(((&0 + &1) + var (
   intro y
   simp[Fin.snoc]
 
-@[simp] lemma addAssociativity_zero : addAssociativityForm 0 := by simp[addAssociativityForm]
+@[simp] lemma addAssociativity_zero : addAssociativityForm (0 : R) := by simp[addAssociativityForm]
 lemma addAssociativity_succ {z : R} (h : addAssociativityForm z) : addAssociativityForm (z + 1) := by
   intro x y
   rw[add_succ, h, ← add_succ, ← add_succ]
@@ -67,7 +67,7 @@ def distributivityForm' : arith.Formula (Fin 1) :=
     addAssociativityForm]
  
   
-@[simp] lemma distributivity_zero : distributivityForm 0 := by simp[distributivityForm]
+@[simp] lemma distributivity_zero : distributivityForm (0 : R) := by simp[distributivityForm]
 lemma distributivity_succ {z : R} (h : distributivityForm z) : distributivityForm (z + 1) := by
   intro x y h2
   rw[add_succ, mul_succ, h, h2, mul_succ]
@@ -88,7 +88,7 @@ def mulAssociativityForm' : arith.Formula (Fin 1) :=
   simp[BoundedFormula.realize_iff_formula_realize, Fin.snoc]
 
 @[simp]
-def mulAssociativity_zero : mulAssociativityForm 0 := by simp[mulAssociativityForm]
+def mulAssociativity_zero : mulAssociativityForm (0 : R) := by simp[mulAssociativityForm]
 
 def mulAssociativity_succ {z : R} (h : mulAssociativityForm z) : mulAssociativityForm (z + 1) := by
   intro x y h1 h2
@@ -108,7 +108,7 @@ def zeroIdentityForm' : arith.Formula (Fin 1) :=
   rfl
 
 @[simp]
-def zeroIdentity_zero : zeroIdentityForm 0 := by simp[zeroIdentityForm]
+def zeroIdentity_zero : zeroIdentityForm (0 : R) := by simp[zeroIdentityForm]
 
 def zeroIdentity_succ {z : R} (h : zeroIdentityForm z) : zeroIdentityForm (z + 1) := by
   intro x y
@@ -215,7 +215,162 @@ def c3Form' : arith.Formula (Fin 1) :=
   · rw[BoundedFormula.realize_subst]
     rw[BoundedFormula.realize_iff_formula_realize]
     simp
+section
+variable (φ0 : φ.Realize (M := R) (λ _ ↦ (0 : R))) (φs : ∀ x, φ.Realize (M := R) (λ _ ↦ x) → φ.Realize (M := R) (λ _ ↦ x + 1))
+
+
+lemma c_of_c0 {x : R} (h : c0Form (R := R) φ x) : φ.Realize (M := R) (λ _ ↦ x) := by
+  unfold c0Form at h
+  tauto
+
+@[simp]
+lemma c0_zero : c0Form (R := R) φ 0 := by
+  simp only [c0Form, addAssociativity_zero, distributivity_zero, mulAssociativity_zero, zeroIdentity_zero, and_self,
+    and_true]
+  exact φ0
+
+lemma c0_succ {x : R} (h : c0Form φ x) : c0Form φ (x + 1) := by
+  simp only [c0Form] at *
+  split_ands
+  · exact φs _ h.left
+  · simp[h, addAssociativity_succ] 
+  · simp[h, distributivity_succ] 
+  · simp[h, mulAssociativity_succ] 
+  · simp[h, zeroIdentity_succ] 
+
+lemma c0_of_c1 {x : R} (h : c1Form φ x) : c0Form φ x := by
+  simp only [c1Form] at h 
+  exact h x 0 (by simp) (by simp)
+
+@[simp]
+lemma c1_zero : c1Form (R := R) φ 0 := by
+  intro y z eq _
+  simp only [add_zero_iff_both] at eq 
+  rw[eq.left]
+  apply c0_zero _ φ0 (R := R)
+
+lemma c1_succ {x : R} (h : c1Form φ x) : c1Form φ (x + 1) := by
+  intro y z h1 h2
+  rcases zero_or_succ z with (⟨eq⟩|⟨z2, eq⟩)
+  · rw[eq, RobinsonStructure.add_zero] at h1
+    rw[h1]
+    apply c0_succ φ φs
+    apply c0_of_c1 _ h
+  · rw[eq, add_succ] at h1
+    have h1 := succ_inj.mp h1
+    apply h (z := z2) _ h1
+    convert addAssociativity_pred h2
+    simp[eq]
+
+lemma c1_summands {u v : R} (h : c1Form φ (u + v)) (h2 : addAssociativityForm v) : c1Form φ u := by
+  intro y z eq assoc
+  have : y + (z + v) = u + v := by rw[← eq, h2 y z]
+  have assoc2 : addAssociativityForm (z + v) := addAssociativity_add assoc h2
+  exact h (z := z + v) _ this assoc2 
+
+lemma c1_of_c2 {x : R} (h : c2Form φ x) : c1Form φ x := by
+  unfold c2Form at h
+  have h2 := h 0 (c1_zero _ φ0)
+  have h3 : zeroIdentityForm (0 + x) := by have := c0_of_c1 _ h2; unfold c0Form at this; tauto
+  rw[← zeroIdentity_prop h3] at h2
+  exact h2
+
+@[simp]
+lemma c2_zero : c2Form (R := R) φ 0 := by
+  intro y h
+  simpa
+
+lemma c2_succ {x : R} (h : c2Form φ x) : c2Form φ (x + 1) := by
+  intro y h2
+  specialize h y h2
+  simp only [add_succ]
+  apply c1_succ _ φs h
+
+lemma c2_summands {u v : R} (h : c2Form φ (u + v)) (h2 : addAssociativityForm v) : c2Form φ u := by
+  intro y h3
+  apply c1_summands φ (v := v)
+  rw[h2]
+  apply h _ h3
+  apply h2
+
+lemma c2_add {x y : R} (hx : c2Form φ x) (hy : c2Form φ y) : c2Form φ (x + y) := by
+  intro z hz
+  have h3 : addAssociativityForm y := by have := c0_of_c1 φ (c1_of_c2 φ φ0 hy); unfold c0Form at this; tauto
+  rw[← h3]
+  apply hy
+  exact hx _ hz
+
+lemma c2_of_c3 {x : R} (h : c3Form φ x) : c2Form φ x := h.left
+
+@[simp]
+lemma c3_zero : c3Form (R := R) φ 0 := by
+  apply And.intro (c2_zero φ)
+  simp
+
+lemma c3_succ {x : R} (h : c3Form φ x) : c3Form φ (x + 1) := by
+  apply And.intro (c2_succ φ φs (c2_of_c3 φ h))
+  intro y hy
+  simp only [mul_succ]
+  apply c2_add φ φ0
+  · apply h.right _ hy 
+  · exact hy 
+
+lemma c3_pred {x : R} (h : c3Form φ x) : c3Form φ (pred x) := by
+  rcases zero_or_succ x with (⟨eq⟩|⟨x2, eq⟩)
+  · rw[eq]
+    simp only [pred_zero, c3_zero]
+  · rw[eq]
+    rw[eq] at h
+    simp only [pred_succ]
+    constructor
+    · apply c2_summands (v := 1)
+      · exact c2_of_c3 _ h
+      · rw[← succ_zero_eq_one]
+        apply addAssociativity_succ
+        simp
+    · intro y hy
+      have h2 := h.right y hy
+      simp only [mul_succ] at h2
+      apply c2_summands (v := y)
+      · exact h2
+      · have := c0_of_c1 _ (c1_of_c2 _ φ0 hy)
+        unfold c0Form at this
+        tauto
+
+lemma c3_add {x y : R} (hx : c3Form φ x) (hy : c3Form φ y) : c3Form φ (x + y) := by
+  apply And.intro (c2_add _ φ0 (c2_of_c3 _ hx) (c2_of_c3 _ hy))
+  intro z hz
+  have t1 : distributivityForm y := by have := c0_of_c1 _ (c1_of_c2 _ φ0 (c2_of_c3 _ hy)); unfold c0Form at this; tauto
+  have t2 : addAssociativityForm z := by have := c0_of_c1 _ (c1_of_c2 _ φ0 hz); unfold c0Form at this; tauto
+  rw[t1 _ _ t2]
+  apply c2_add _ φ0
+  · apply hx.right _ hz
+  · apply hy.right _ hz
+
+lemma c3_mul {x y : R} (hx : c3Form φ x) (hy : c3Form φ y) : c3Form φ (x * y) := by
+  apply And.intro
+  · apply hy.right
+    apply c2_of_c3 _ hx
+  · intro z hz
+    have t1 : mulAssociativityForm y := by have := c0_of_c1 _ (c1_of_c2 _ φ0 (c2_of_c3 _ hy)); unfold c0Form at this; tauto
+    have t2 : distributivityForm x := by have := c0_of_c1 _ (c1_of_c2 _ φ0 (c2_of_c3 _ hx)); unfold c0Form at this; tauto
+    have t3 : addAssociativityForm z := by have := c0_of_c1 _ (c1_of_c2 _ φ0 hz); unfold c0Form at this; tauto
+    rw[← t1 _ _ t3 t2]
+    apply hy.right
+    apply hx.right
+    exact hz
+
+lemma c_of_c3 {x : R} (h : c3Form φ x) : φ.Realize (M := R) (λ _ ↦ x) := by
+  apply c_of_c0
+  apply c0_of_c1
+  apply c1_of_c2 _ φ0
+  apply c2_of_c3 _ h
+
+
+end
 end Layers
+
+
 end Relativizer
 end
 end Arith.Robinson
