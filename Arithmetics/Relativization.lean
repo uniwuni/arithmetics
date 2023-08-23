@@ -197,7 +197,7 @@ class ClosedUnderFunctions where
   · rintro h x r
     have: x = λ _ ↦ x 0 := by ext a; let 0 := a; rfl
     rw[this] at r
-    have : (Sum.elim k (Fin.snoc (default : Fin 0 → _)  (x 0)) ∘ Sum.map id fun x => 0) = (Sum.elim k (fun _ ↦ x 0) : α ⊕ Fin 1 → R) := by
+    have : (Sum.elim k (Fin.snoc (default : Fin 0 → _)  (x 0)) ∘ Sum.map id fun _ => 0) = (Sum.elim k (fun _ ↦ x 0) : α ⊕ Fin 1 → R) := by
       ext (i|_)
       · simp
       · simp only [Function.comp_apply, Sum.map_inr, Sum.elim_inr, Fin.snoc_one_of_zero]
