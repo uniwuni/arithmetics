@@ -147,8 +147,8 @@ def closed_under_function_formula {n} (f : Functions L n) : L.Formula α :=
   relativize χ (Term.bdEqual (&(n : Fin (n+1))) (func f fun i => &i)).ex.alls
 
 
-class ClosedUnderFunctions where
-  isClosedUnderFunctions : ∀k : _, ∀n, ∀ f : L.Functions n, Formula.Realize (M := R) (closed_under_function_formula χ f : L.Formula α) k
+class ClosedUnderFunctions (k : _) where
+  isClosedUnderFunctions : ∀n, ∀ f : L.Functions n, Formula.Realize (M := R) (closed_under_function_formula χ f : L.Formula α) k
 
 @[simp] lemma realize_closed_under_function_iff₀ (f : Functions L 0) (k : _):
   Formula.Realize (M := R) (closed_under_function_formula χ f) k ↔ 
@@ -288,11 +288,11 @@ class ClosedUnderFunctions where
       fin_cases i <;> simp
 
 def RelativizationSubstructure₂' [AtMostBinaryFunctions L] (k : α → R)
-  [ClosedUnderFunctions (R := R) χ] : 
+  [ClosedUnderFunctions (R := R) χ k] : 
   L.Substructure R where
   carrier := {x | Formula.Realize χ (Sum.elim k (λ _ ↦ x))}
   fun_mem := by
-    have hc := ClosedUnderFunctions.isClosedUnderFunctions (χ := χ) k
+    have hc := ClosedUnderFunctions.isClosedUnderFunctions (χ := χ) (k := k)
     intro m f xs h
     have hl := AtMostBinaryFunctions.at_most_binary _ f
     match m with
@@ -325,25 +325,26 @@ def RelativizationSubstructure₂' [AtMostBinaryFunctions L] (k : α → R)
 
 
 def RelativizationSubstructure₂ (χ : L.Formula (Empty ⊕ Fin 1)) [AtMostBinaryFunctions L]
-  [ClosedUnderFunctions (R := R) χ] : L.Substructure R := RelativizationSubstructure₂' χ default
+  [ClosedUnderFunctions (R := R) χ k] : L.Substructure R := RelativizationSubstructure₂' χ k
 
 section
-variable (χ : L.Formula (Empty ⊕ Fin 1)) [AtMostBinaryFunctions L] [ClosedUnderFunctions (R := R) χ]
+variable (k : α → R)  (χ : L.Formula (α ⊕ Fin 1)) [AtMostBinaryFunctions L] [ClosedUnderFunctions (R := R) χ (k := k)]
 
-@[simp] lemma relativizationSubstructure₂_mem (x : R) :
-    x ∈ RelativizationSubstructure₂ χ ↔ Formula.Realize χ (λ _ ↦ x) := by
-  simp only [RelativizationSubstructure₂, RelativizationSubstructure₂']
+@[simp] lemma relativizationSubstructure₂'_mem (x : R) :
+    x ∈ RelativizationSubstructure₂' χ k ↔ Formula.Realize χ (Sum.elim k (λ _ ↦ x)) := by
+  simp only [RelativizationSubstructure₂']
   simp_rw[← Substructure.mem_carrier, Set.mem_setOf_eq]
-  rw[iff_iff_eq]
-  congr
-  ext ⟨a|a⟩
-  · simp
 
+--@[simp] lemma relativizationSubstructure₂_mem (x : R) :
+--    x ∈ RelativizationSubstructure₂ (R := R) χ ↔ Formula.Realize χ (λ _ ↦ x) := by
+--  simp only [RelativizationSubstructure₂]
+--  simp
 
-@[simp] lemma relativizationSubstructure₂_realizes_iff {n : ℕ} (φ : L.BoundedFormula Empty n)
-  (v : Fin n → RelativizationSubstructure₂ (R := R) χ):
-  BoundedFormula.Realize (M := RelativizationSubstructure₂ (R := R) χ) φ default v ↔ 
-  BoundedFormula.Realize (M := R) (relativize χ φ) default (((↑) ∘ v) : Fin n → R) := by induction φ with
+@[simp] lemma relativizationSubstructure₂'_realizes_iff {n : ℕ} (φ : L.BoundedFormula α n)
+  (v : Fin n → RelativizationSubstructure₂' (R := R) χ k) (k_in : ∀i, k i ∈ RelativizationSubstructure₂' (R := R) χ k):
+  BoundedFormula.Realize (M := RelativizationSubstructure₂' (R := R) χ k) φ 
+    (λ i ↦ ⟨k i, k_in i⟩) v ↔ 
+  BoundedFormula.Realize (M := R) (relativize χ φ) k (((↑) ∘ v) : Fin n → R) := by induction φ with
     | falsum => simp[relativize]
     | imp φ ψ pφ pψ =>
       simp only [realize_imp, relativize]
@@ -360,18 +361,13 @@ variable (χ : L.Formula (Empty ⊕ Fin 1)) [AtMostBinaryFunctions L] [ClosedUnd
         rw[← realize_term_substructure]
         arg 1
         rw[Sum.comp_elim]
-      conv =>
-        lhs 
-        arg 2
-        ext
-        arg 1
-        rw[Subsingleton.allEq (Subtype.val ∘ default) default]
     | equal x y =>
       rw[relativize, Realize, Realize]
       simp only [Substructure.inducedStructure]
       rw[Subtype.ext_iff]
       rw[← realize_term_substructure, ← realize_term_substructure]
-      rw[Sum.comp_elim, Subsingleton.allEq (Subtype.val ∘ default) default]
+      rw[Sum.comp_elim]
+      congr!
     | all φ pφ =>
       rw[relativize, Realize, Realize]
       simp
@@ -380,32 +376,38 @@ variable (χ : L.Formula (Empty ⊕ Fin 1)) [AtMostBinaryFunctions L] [ClosedUnd
       constructor
       · intro h is_χ
         specialize h _
-        · rw[relativizationSubstructure₂_mem, Formula.Realize]
+        · rw[relativizationSubstructure₂'_mem, Formula.Realize]
           convert is_χ with ⟨a|a⟩
-          · simp[Fin.snoc] 
+          · rw[Sum.elim_comp_map]
+            congr! with a
+            let 0 := a
+            simp
         · rw[pφ] at h
           convert h
           rw[Fin.comp_snoc]
       · intro h prf
         specialize h _
-        · rw[relativizationSubstructure₂_mem, Formula.Realize] at prf
+        · rw[relativizationSubstructure₂'_mem, Formula.Realize] at prf
           convert prf with ⟨a|a⟩
-          · simp
-        · rw[pφ]
+          · rw[Sum.elim_comp_map]
+            congr! with a
+            let 0 := a
+            simp
+        · rw[pφ (Fin.snoc v ({ val := x, property := prf } :  { a // a ∈ RelativizationSubstructure₂' χ k }))]
           convert h
           rw[Fin.comp_snoc]
 
 @[simp]
-lemma relativizationSubstructure₂_qf_iff {φ : L.BoundedFormula Empty n} (hqf : IsQF φ) 
-  {xs : Fin n → RelativizationSubstructure₂ (R := R) χ} :
-    φ.Realize default xs ↔ φ.Realize (M := R) default (((↑) ∘ xs) : Fin n → R) := 
+lemma relativizationSubstructure₂_qf_iff {φ : L.BoundedFormula α n} (hqf : IsQF φ) 
+  {xs : Fin n → RelativizationSubstructure₂' (R := R) χ k} (k_in : ∀i, k i ∈ RelativizationSubstructure₂' (R := R) χ k) :
+    φ.Realize (λ i ↦ ⟨k i, k_in i⟩) xs ↔ φ.Realize (M := R) k (((↑) ∘ xs) : Fin n → R) := 
   match hqf with
   | IsQF.falsum => by rfl
   | IsQF.of_isAtomic (IsAtomic.rel r ts) => by
-    rw[relativizationSubstructure₂_realizes_iff]
+    rw[relativizationSubstructure₂'_realizes_iff]
     simp only [relativize, realize_rel, Realize]
   | IsQF.of_isAtomic (IsAtomic.equal a b) => by
-    rw[relativizationSubstructure₂_realizes_iff]
+    rw[relativizationSubstructure₂'_realizes_iff]
     simp only [relativize, realize_bdEqual, Realize]
   | IsQF.imp h₁ h₂ => by
     simp only [realize_imp]
