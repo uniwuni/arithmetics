@@ -1,5 +1,6 @@
 import Arithmetics.RobinsonModels
 import Arithmetics.Relativization
+import Arithmetics.RelativizationModels
 import Mathlib.Logic.Equiv.Basic
 variable {α : Type*}
 namespace FirstOrder
@@ -8,9 +9,6 @@ namespace Arith.Robinson
 open Language.Theory
 open Language arith Structure 
 
-instance : AtMostBinaryFunctions arith where
-  at_most_binary n f := by
-    rcases f <;> simp
 
   
   
@@ -20,8 +18,6 @@ variable {R : Type} [Add R] [Mul R] [LE R] [One R] [Zero R] [CompatibleOrderedSe
 variable [RobinsonStructure R]
 open RobinsonStructure
 open CompatibleOrderedSemiring
-
-local instance rModels : R ⊨ Q := by rw[satisfies_robinson_iff]; infer_instance
 
 namespace Relativizer
 def addAssociativityForm (z : R) := ∀ x : R, ∀ y : R, (x + y) + z = x + (y + z)
@@ -369,6 +365,11 @@ lemma c3_pred {x : R} (h : c3Form φ v x) : c3Form φ v (pred x) := by
         unfold c0Form at this
         tauto
 
+lemma c3_of_succ {x : R} (h : c3Form φ v (x + 1)) : c3Form φ v x := by
+  have := c3_pred _ _ h
+  simp only [pred_succ] at this 
+  exact this
+
 lemma c3_add {x y : R} (hx : c3Form φ v x) (hy : c3Form φ v y) : c3Form φ v (x + y) := by
   apply And.intro (c2_add _ v (c2_of_c3 _ _ hx) (c2_of_c3 _ _ hy))
   intro z hz
@@ -391,6 +392,26 @@ lemma c3_mul {x y : R} (hx : c3Form φ v x) (hy : c3Form φ v y) : c3Form φ v (
     apply hy.right
     apply hx.right
     exact hz
+
+lemma c3_summands {u w : R} (h : c3Form φ v (u + w)) (h2 : c3Form φ v w) : c3Form φ v u := by
+  have hc2 : c2Form φ v u := by
+    · apply c2_summands
+      · apply c2_of_c3 _ _ h
+      · have := c0_of_c1 _ v (c1_of_c2 _ v (c2_of_c3 _ _ h2))
+        unfold c0Form at this
+        tauto
+  apply And.intro hc2
+  · intro y hy
+    have h3 := h2.right y hy
+    have h := h.right y hy
+    apply c2_summands (w := y * w)
+    · have t2 : distributivityForm w := by have := c0_of_c1 _ v (c1_of_c2 _ v (c2_of_c3 _ v h2)); unfold c0Form at this; tauto
+      rw[← t2]
+      · exact h
+      · have := c0_of_c1 _ v (c1_of_c2 _ v hy); unfold c0Form at this; tauto
+    · have := c0_of_c1 _ v (c1_of_c2 _ v h3); unfold c0Form at this; tauto
+
+
 
 lemma c_of_c3 {x : R} (h : c3Form φ v x) : φ.Realize (M := R) (Sum.elim v (λ _ ↦ (x : R))) := by
   apply c_of_c0
@@ -418,29 +439,124 @@ instance c3Closed : BoundedFormula.ClosedUnderFunctions (L := arith) (R := R) (c
       apply c3_succ
       apply c3_zero
 
- 
 variable (v_in : ∀ i, v i ∈ BoundedFormula.RelativizationSubstructure₂' (R := R) (c3Form' φ) v) 
 
-instance c3Model : BoundedFormula.RelativizationSubstructure₂' (R := R) (c3Form' φ) v ⊨ Q where
-  realize_of_mem := by
-    intro ψ ψ_in
-    rcases ψ_in with ⟨h⟩
-    · rw[h, Sentence.Realize, Formula.Realize]
-      suffices h2 : BoundedFormula.Realize (M := { x // x ∈ BoundedFormula.RelativizationSubstructure₂' (c3Form' φ) v }) (BoundedFormula.relabel (default : Empty → α ⊕ Fin 0) axiom_succ_ne_zero) (λ i ↦ ⟨v i, v_in i⟩) finZeroElim by
-        simp only [Nat.add_zero, BoundedFormula.realize_relabel, Fin.castAdd_zero, Fin.cast_refl,
-          Function.comp.right_id] at h2 
-        congr!
-      apply[BoundedFormula.relativizationSubstructure_universal_of]
-        
+instance c3Model : BoundedFormula.RelativizationSubstructure₂' (R := R) (c3Form' φ) v ⊨ Q := by
+  apply substructureModelsRobinson
+  · intro x
+    rw[BoundedFormula.relativizationSubstructure₂'_mem, BoundedFormula.relativizationSubstructure₂'_mem, c3Form'_iff, c3Form'_iff]
+    apply c3_of_succ (R := R)
+  · intro x y
+    rw[BoundedFormula.relativizationSubstructure₂'_mem,
+      BoundedFormula.relativizationSubstructure₂'_mem,
+      BoundedFormula.relativizationSubstructure₂'_mem,
+      c3Form'_iff, c3Form'_iff, c3Form'_iff]
+    apply c3_summands (R := R)
+  
+theorem relativize_has_qf_true (h : BoundedFormula.IsQF φ) : 
+  Formula.Realize (L := arith) (M := BoundedFormula.RelativizationSubstructure₂' (R := R) (c3Form' φ) v)
+    (∀' (BoundedFormula.relabel (k := 0) id φ)) (λ x ↦ ⟨v x, v_in x⟩) := by
+    intro x
+    rw[BoundedFormula.relativizationSubstructure₂_qf_iff]
+    rcases x with ⟨x, hx⟩
+    simp only [Fin.snoc, Fin.coe_fin_one, lt_self_iff_false, Fin.castSucc_castLT, cast_eq, dite_false,
+      BoundedFormula.realize_relabel, Nat.add_zero, Fin.castAdd_zero, Fin.cast_refl, Function.comp.right_id]
        
+    simp only [BoundedFormula.relativizationSubstructure₂'_mem, c3Form'_iff] at hx 
+    have hx := c_of_c3 _ _ hx
+    rw[BoundedFormula.realize_iff_formula_realize]
+    convert hx
+    apply BoundedFormula.IsQF.relabel h
+
+theorem relativize_has_all_of_qf_true {ψ : arith.BoundedFormula (α ⊕ Fin 1) 1} (h : BoundedFormula.IsQF ψ) (eq : ψ.all = φ): 
+  Formula.Realize (L := arith) (M := BoundedFormula.RelativizationSubstructure₂' (R := R) (c3Form' φ) v) 
+  (∀' (BoundedFormula.relabel (k := 0) id φ)) (λ x ↦ ⟨v x, v_in x⟩) := by
+    intro x
+    simp_rw[← eq]
+    simp only [BoundedFormula.relabel_all, Nat.add_eq, Nat.add_zero,
+      BoundedFormula.realize_relabel, Function.comp.right_id, Subtype.forall]
+    apply BoundedFormula.relativizationSubstructure_universal_one
+    · apply BoundedFormula.IsQF.relabel h
+    intro x2
+    rcases x with ⟨x, hx⟩   
+    simp only [BoundedFormula.relativizationSubstructure₂'_mem, c3Form'_iff] at hx 
+    have hx := c_of_c3 _ _ hx
+    rw[← eq] at hx
+    rw[BoundedFormula.realize_relabel]
+    simp only [Function.comp.right_id]
+    specialize hx x2
+    convert hx with i
+    · let 0 := i
+      simp[Fin.snoc, Fin.castAdd]
+    · ext i
+      let 0 := i
+      simp[Fin.snoc]
+
+
 
 
 end
+
 end Layers
 
+namespace TowardsSemiring
 
-end Relativizer
+def zeroLeftForm (x : R) := (0 + x) = x
+def zeroLeftForm' : arith.Formula (Empty ⊕ Fin 1) := (0 + var (Sum.inl (Sum.inr 0))) =' var (Sum.inl (Sum.inr 0))
+
+@[simp] lemma zeroLeftForm'_iff (z : Empty ⊕ Fin 1 → R) :
+  zeroLeftForm'.Realize (M := R) z ↔ zeroLeftForm (z (Sum.inr 0)) := by
+  simp[Formula.Realize, zeroLeftForm', zeroLeftForm]
+
+def succLeftForm (x: R) := ∀ y, ((y + 1) + x) = (y + x) + 1
+def succLeftForm' : arith.Formula (Empty ⊕ Fin 1) := ((((&0) + 1) + var (Sum.inl (Sum.inr 0))) =' (((&(0 : Fin 1)) + var (Sum.inl (Sum.inr 0))) + 1)).alls
+
+@[simp] lemma succLeftForm'_iff (z : Empty ⊕ Fin 1 → R) :
+  succLeftForm'.Realize (M := R) z ↔ succLeftForm (z (Sum.inr 0)) := by
+  simp[BoundedFormula.Realize,Formula.Realize, succLeftForm', succLeftForm]
+
+instance (v : _) : Layers.Inductive (R := R) zeroLeftForm' v where
+  at_zero := by simp[zeroLeftForm]
+  at_succ := by simp[zeroLeftForm]
+
+instance (v : _) : Layers.Inductive (R := R) succLeftForm' v where
+  at_zero := by simp[succLeftForm]
+  at_succ := by simp[succLeftForm]
+
+instance (v : _) : Layers.Inductive (R := R) (zeroLeftForm' ⊓ succLeftForm') v where
+  at_zero := by 
+    simp only [Formula.realize_inf, Formula.realize_relabel, zeroLeftForm'_iff, Function.comp_apply, Sum.map_inr, id_eq,
+      Sum.elim_inr, succLeftForm'_iff, Sum.elim_inl]
+    constructor <;> simp[zeroLeftForm, succLeftForm]
+  at_succ := by
+    simp only [Formula.realize_inf, Formula.realize_relabel, zeroLeftForm'_iff, Function.comp_apply, Sum.map_inr, id_eq,
+      Sum.elim_inr, succLeftForm'_iff, Sum.elim_inl, and_imp]
+    intro x h h2
+    constructor
+    · simp only [zeroLeftForm, add_succ, succ_inj]
+      exact h 
+    · simp only [succLeftForm, add_succ, succ_inj]
+      exact h2 
+
+def precommutativeSubstructure : Substructure arith R :=  BoundedFormula.RelativizationSubstructure₂' (R := R) (Layers.c3Form' (zeroLeftForm' ⊓ succLeftForm')) default
+
+def addCommForm (x : R) := ∀ y, x + y = y + x
+def addCommForm' : arith.Formula (Empty ⊕ Fin 1) := ((var (Sum.inl (Sum.inr 0)) + (&(0 : Fin 1))) =' ((&0) + var (Sum.inl (Sum.inr 0)))).alls
+
+@[simp] lemma addCommForm'_iff (z : Empty ⊕ Fin 1 → R) :
+  addCommForm'.Realize (M := R) z ↔ addCommForm (z (Sum.inr 0)) := by
+  simp[BoundedFormula.Realize,Formula.Realize, addCommForm, addCommForm]
+
+instance (v : _) : Layers.Inductive (R := precommutativeSubstructure (R := R)) addcommForm' v where
+  at_zero := by
+    simp
+
+end TowardsSemiring
+
 end
+
+
+
 end Arith.Robinson
 
 end FirstOrder

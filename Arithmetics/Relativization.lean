@@ -442,9 +442,21 @@ lemma relativizationSubstructure_universal_of {φ : L.BoundedFormula α n} (hqf 
   rw[relativize_of_qf]
   apply h
   apply hqf
+
+lemma relativizationSubstructure_universal_one {φ : L.BoundedFormula α _} (hqf : IsQF φ) 
+  {xs : Fin n → RelativizationSubstructure₂' (R := R) χ k}  (k_in : ∀i, k i ∈ RelativizationSubstructure₂' (R := R) χ k) :
+    φ.all.Realize (M := R) k (((↑) ∘ xs) : Fin n → R) → φ.all.Realize (M := RelativizationSubstructure₂' (R := R) χ k) (λ i ↦ ⟨k i, k_in i⟩) xs := by
+  intro h
+  rw[realize_all]
+  rw[realize_all] at h
+  intro ys
+  simp only [relativizationSubstructure₂'_realizes_iff]
+  rw[relativize_of_qf]
+  convert h ys
+  rw[Fin.comp_snoc]
+  · exact hqf
+
 end
-
-
 end BoundedFormula
 
 section 
